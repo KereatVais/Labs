@@ -9,6 +9,8 @@ void Swap(char *left, char *right)
     *right = a;
 }
 
+gcc ./main.c ./swap.c
+
 №2
 void RevertString(char *str)
 {
