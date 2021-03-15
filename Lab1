@@ -56,3 +56,10 @@ done
 aver=$[$sum/$count]
 echo "Среднее арифметическое: $aver"
 
+
+for i in `seq 150`
+do 
+od -An -N1 -i /dev/random >> os_lab_2019/lab1/src/numbers.txt 
+done
+
+xargs!!!!!!
