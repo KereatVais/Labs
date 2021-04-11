@@ -1,0 +1,349 @@
+№1
+no_mutex.c
+
+#include <errno.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+void do_one_thing(int *);
+void do_another_thing(int *);
+void do_wrap_up(int);
+int common = 0; /* A shared variable for two threads */
+int r1 = 0, r2 = 0, r3 = 0;
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+
+int main() {
+  pthread_t thread1, thread2;
+
+  if (pthread_create(&thread1, NULL, (void *)do_one_thing,
+			  (void *)&common) != 0) {
+    perror("pthread_create");
+    exit(1);
+  }
+
+  if (pthread_create(&thread2, NULL, (void *)do_another_thing,
+                     (void *)&common) != 0) {
+    perror("pthread_create");
+    exit(1);
+  }
+
+  if (pthread_join(thread1, NULL) != 0) {
+    perror("pthread_join");
+    exit(1);
+  }
+
+  if (pthread_join(thread2, NULL) != 0) {
+    perror("pthread_join");
+    exit(1);
+  }
+
+  do_wrap_up(common);
+
+  return 0;
+}
+
+void do_one_thing(int *pnum_times) {
+  int i, j, x;
+  unsigned long k;
+  int work;
+  for (i = 0; i < 50; i++) {
+    //pthread_mutex_lock(&mut);
+    printf("doing one thing\n");
+    work = *pnum_times;
+    printf("counter = %d\n", work);
+    work++; /* increment, but not write */
+    for (k = 0; k < 500000; k++)
+      ;                 /* long cycle */
+    *pnum_times = work; /* write back */
+	  //pthread_mutex_unlock(&mut);
+  }
+}
+
+void do_another_thing(int *pnum_times) {
+  int i, j, x;
+  unsigned long k;
+  int work;
+  for (i = 0; i < 50; i++) {
+    //pthread_mutex_lock(&mut);
+    printf("doing another thing\n");
+    work = *pnum_times;
+    printf("counter = %d\n", work);
+    work++; /* increment, but not write */
+    for (k = 0; k < 500000; k++)
+      ;                 /* long cycle */
+    *pnum_times = work; /* write back */
+    //pthread_mutex_unlock(&mut);
+  }
+}
+
+void do_wrap_up(int counter) {
+  int total;
+  printf("All done, counter = %d\n", counter);
+}
+
+with_mutex.c
+
+#include <errno.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+void do_one_thing(int *);
+void do_another_thing(int *);
+void do_wrap_up(int);
+int common = 0; /* A shared variable for two threads */
+int r1 = 0, r2 = 0, r3 = 0;
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+
+int main() {
+  pthread_t thread1, thread2;
+
+  if (pthread_create(&thread1, NULL, (void *)do_one_thing,
+			  (void *)&common) != 0) {
+    perror("pthread_create");
+    exit(1);
+  }
+
+  if (pthread_create(&thread2, NULL, (void *)do_another_thing,
+                     (void *)&common) != 0) {
+    perror("pthread_create");
+    exit(1);
+  }
+
+  if (pthread_join(thread1, NULL) != 0) {
+    perror("pthread_join");
+    exit(1);
+  }
+
+  if (pthread_join(thread2, NULL) != 0) {
+    perror("pthread_join");
+    exit(1);
+  }
+
+  do_wrap_up(common);
+
+  return 0;
+}
+
+void do_one_thing(int *pnum_times) {
+  int i, j, x;
+  unsigned long k;
+  int work;
+  for (i = 0; i < 50; i++) {
+    pthread_mutex_lock(&mut);
+    printf("doing one thing\n");
+    work = *pnum_times;
+    printf("counter = %d\n", work);
+    work++; /* increment, but not write */
+    for (k = 0; k < 500000; k++)
+      ;                 /* long cycle */
+    *pnum_times = work; /* write back */
+	pthread_mutex_unlock(&mut);
+  }
+}
+
+void do_another_thing(int *pnum_times) {
+  int i, j, x;
+  unsigned long k;
+  int work;
+  for (i = 0; i < 50; i++) {
+    pthread_mutex_lock(&mut);
+    printf("doing another thing\n");
+    work = *pnum_times;
+    printf("counter = %d\n", work);
+    work++; /* increment, but not write */
+    for (k = 0; k < 500000; k++)
+      ;                 /* long cycle */
+    *pnum_times = work; /* write back */
+    pthread_mutex_unlock(&mut);
+  }
+}
+
+void do_wrap_up(int counter) {
+  int total;
+  printf("All done, counter = %d\n", counter);
+}
+
+№ 2
+
+#include <errno.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <getopt.h>
+#include <stdint.h>
+
+struct Data
+{
+    uint32_t* fact;
+    uint32_t begin, end;
+    uint32_t mod;
+};
+
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+uint32_t shared = 1;
+
+
+int *Fact(void *args)
+{
+    struct Data *d = (struct Data *)args;
+    for (int i = d->begin; i < d->end; i++)
+    {
+        pthread_mutex_lock(&mut);
+        *(d->fact) *= i;
+        printf("i = %d, d->fact = %d, ", i, *(d->fact));
+        *(d->fact) %= d->mod;
+        printf("d->fact = %d\n", *(d->fact));
+        pthread_mutex_unlock(&mut);
+        
+    }
+}
+
+int main(int argc, char **argv)
+{
+uint32_t k = -1;
+uint32_t pnum = -1;
+uint32_t mod = -1;
+
+while (true) {
+   int current_optind = optind ? optind : 1;
+
+   static struct option options[] = {{"k", required_argument, 0, 0},
+                                    {"pnum", required_argument, 0, 0},
+                                    {"mod", required_argument, 0, 0},
+                                    {0, 0, 0, 0}};
+    int option_index = 0;
+    int c = getopt_long(argc, argv, "", options, &option_index);
+
+    if (c == -1) break;
+
+    switch (c) {
+      case 0:
+        switch (option_index) {
+          case 0:
+            k = atoi(optarg);
+            if (k <= 0) {
+                printf("k is a positive number\n");
+                return 1;
+            }
+            break; 
+          case 1:
+            pnum = atoi(optarg);
+            if (pnum <= 0) {
+                printf("pnum is a positive number\n");
+                return 1;
+            }
+            break;
+          case 2:
+            mod = atoi(optarg);
+            if (mod <= 0) {
+                printf("mod is a positive number\n");
+                return 1;
+            }
+            break;
+
+          default:
+            printf("Index %d is out of options\n", option_index);
+        }
+        break;
+
+    default:
+        printf("getopt returned character code 0%o?\n", c);
+    }
+  }
+
+  if (optind < argc) {
+    printf("Has at least one no option argument\n");
+    return 1;
+  }
+
+  if (k == -1 || pnum == -1 || mod == -1) {
+    printf("Usage: %s --k \"num\" --pnum \"num\" --mod \"num\" \n",
+           argv[0]);
+    return 1;
+  }
+
+  pthread_t threads[pnum];
+  struct Data d[pnum];
+  for (int i = 0; i < pnum; i++)
+  {
+      d[i].fact = &shared;
+      d[i].begin = i * k / pnum + 1;
+      d[i].end = (i == (pnum - 1) ) ? k + 1 : (i + 1) * k / pnum + 1;
+      d[i].mod = mod;
+  }
+
+  for (int i = 0; i < pnum; i++)
+      if(pthread_create(&threads[i], NULL, (void *)Fact, (void *)&d[i]))
+      {
+        perror("pthread_create");
+        exit(1);
+      }  
+      else
+      {
+        //printf("Thread[%d]\n", i);
+        //printf("d[%d].begin = %d\nd[%d].end = %d\n", i, d[i].begin, i, d[i].end);
+      }
+
+  for (int i = 0; i < pnum; i++)
+      if (pthread_join(threads[i], NULL) != 0) {
+        perror("pthread_join");
+        exit(1);
+      }
+
+  printf("Total: %d\n", shared);
+}
+
+
+№ 3
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+#define THREAD_NUM 5
+
+pthread_mutex_t mut;
+int cnt = 0;
+
+void* fun2(int *_cnt)
+{
+    pthread_mutex_lock(&mut);
+    _cnt++;
+    printf("cnt: %d\n", _cnt);
+    pthread_mutex_unlock(&mut);
+}
+
+
+void* fun1(int *_cnt)
+{
+    pthread_mutex_lock(&mut);
+    _cnt++;
+    fun2(_cnt); //deadlock
+    printf("cnt: %d\n", _cnt);
+    pthread_mutex_unlock(&mut);
+}
+
+int main(int argc, char* argv[])
+{
+    pthread_t threads[THREAD_NUM];
+
+    for (int i =0; i < THREAD_NUM; i++)
+    {
+        if (pthread_create(&threads[i], NULL, (void *)fun1, &cnt) != 0)
+        {
+            perror("Error while creating thread");
+        }
+    }
+
+    for (int i =0; i < THREAD_NUM; i++)
+    {
+        if (pthread_join(threads[i], NULL) != 0)
+        {
+            perror("Error while joining");
+        }
+    }
+    printf("cnt: %d\n", cnt);
+} 
