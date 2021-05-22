@@ -17,6 +17,8 @@ client.c
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "factorial.h"
+
 
 struct Server {
   char ip[255];
@@ -32,19 +34,6 @@ struct ThreadArgs{
 
 int result = 1;
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
-
-uint64_t MultModulo(uint64_t a, uint64_t b, uint64_t mod) {
-  uint64_t result = 0;
-  a = a % mod;
-  while (b > 0) {
-    if (b % 2 == 1)
-      result = (result + a) % mod;
-    a = (a * 2) % mod;
-    b /= 2;
-  }
-
-  return result % mod;
-}
 
 bool ConvertStringToUI64(const char *str, uint64_t *val) {
   char *end = NULL;
@@ -146,17 +135,14 @@ int main(int argc, char **argv) {
         if (k < 0)
             printf("k has to be greater than zero!");
         break;
-        break;
       case 1:
         ConvertStringToUI64(optarg, &mod);
         if (mod < 0)
             printf("mod has to be greater than zero!");
         break;
-        break;
       case 2:
         if (sizeof(servers) == 0)
             printf("Servers can't be null!");
-        break;
         memcpy(servers, optarg, strlen(optarg));
         break;
       default:
@@ -173,6 +159,7 @@ int main(int argc, char **argv) {
   }
 
   if (k == -1 || mod == -1 || !strlen(servers)) {
+      printf("k = %d, mod = %d, servers = %s", k, mod, servers);
     fprintf(stderr, "Using: %s --k 1000 --mod 5 --servers /path/to/file\n",
             argv[0]);
     return 1;
@@ -458,3 +445,52 @@ servers.txt
 
 127.0.0.1:20001
 127.0.0.1:20002
+
+./server --port 20001 --tnum 4
+
+./server --port 20002 --tnum 4
+
+./client --k 10 --mod 13 --servers ./servers.txt
+
+№2
+CC=gcc
+CFLAGS=-I.
+
+all : client server
+
+client : factorial.o factorial.h
+	$(CC) -o client factorial.o client.c -lpthread $(CFLAGS)
+
+server : factorial.o factorial.h
+	$(CC) -o server factorial.o server.c -lpthread $(CFLAGS)
+
+factorial.o : factorial.h
+	$(CC) -o factorial.o -c factorial.c $(CFLAGS)
+
+clean :
+	rm -f client server factorial.o
+  
+make
+
+№3
+factorial.h
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+uint64_t MultModulo(uint64_t a, uint64_t b, uint64_t mod);
+
+factorial.c
+
+uint64_t MultModulo(uint64_t a, uint64_t b, uint64_t mod) {
+  uint64_t result = 0;
+  a = a % mod;
+  while (b > 0) {
+    if (b % 2 == 1)
+      result = (result + a) % mod;
+    a = (a * 2) % mod;
+    b /= 2;
+  }
+  return result % mod;
+}
